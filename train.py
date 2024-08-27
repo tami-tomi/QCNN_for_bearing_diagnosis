@@ -47,7 +47,7 @@ def train(config, dataloader):
     if use_gpu:
         net.cuda()
     wandb.watch(net, log="all")
-
+    max_acc = 0.0
     train_loss = []
     valid_loss = []
     train_acc = []
@@ -134,12 +134,22 @@ def train(config, dataloader):
                 wandb.log({
                     "Validation Accuracy": 100. * acc,
                     "Validation Loss": loss_total})
+                if acc >= max_acc:
+                    max_acc = acc
+                    if not os.path.exists('Models'):
+                        os.mkdir('Models')
+                    torch.save(net.state_dict(), f'Models/best_checkpoint.pth')
+                    print('saved')
             print('%s ACC:%.4f' % (phase, acc))
+
+
     return net
 
 
-def inference(dataloader, model):
-    net = model
+def inference(config, dataloader):
+    net = select_model(config.chosen_model)
+    state_dict = torch.load('Models/best_checkpoint.pth')
+    net.load_state_dict(state_dict)
     y_list, y_predict_list = [], []
     if use_gpu:
         net.cuda()
@@ -176,9 +186,9 @@ def inference(dataloader, model):
             "Recall": recall,
             'PRE': precision})
 
-        torch.save(net.state_dict(), os.path.join(wandb.run.dir, "checkpoint.pth"))
-        wandb.save('*.pth')
-        print('model saved')
+        # torch.save(net.state_dict(), os.path.join(wandb.run.dir, "checkpoint.pth"))
+        # wandb.save('*.pth')
+        # print('model saved')
 
         return F1
 
@@ -189,6 +199,7 @@ def main(config):
     random_seed(config.seed)
 
     path = os.path.join('data', config.chosen_data)
+
     # train set, number denotes each category has 750 samples
     train_X, train_Y, valid_X, valid_Y = prepro(d_path=path,
                                                  length=2048,
@@ -226,8 +237,8 @@ def main(config):
         "validation": valid_loader
     }
     test_loader = DataLoader(test_dataset, batch_size=1, shuffle=False, drop_last=False)
-    net = train(config, data_loaders)
-    inference(test_loader, net)
+    train(config, data_loaders)
+    inference(config, test_loader)
 
 
 
@@ -247,7 +258,7 @@ if __name__ == '__main__':
     config.alpha = 0.03 # scale factor alpha
 
     # noisy condition
-    config.add_noise = True
+    config.add_noise = False
     config.snr = -6
 
     # dataset and model
