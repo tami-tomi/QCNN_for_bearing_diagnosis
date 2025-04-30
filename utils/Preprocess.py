@@ -27,7 +27,11 @@ def prepro(d_path, length=2048, number=1000, normal=True, enc=True, enc_step=28,
             # 文件路径
             file_path = os.path.join(d_path, i)
             file = loadmat(file_path)
-            files[i] = file['DE'].ravel()
+            # 오류 수정 코드
+            de_key = [key for key in file.keys() if 'DE_time' in key][0]
+            files[i] = file[de_key].ravel()
+# 기존 코드
+           # files[i] = file['DE'].ravel()
         return files
 
     def slice_enc(data):
